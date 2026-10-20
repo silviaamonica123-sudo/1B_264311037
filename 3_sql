@@ -1,0 +1,11 @@
+SELECT 
+    p.nama AS nama_pengguna, 
+    COUNT(pf.id_peringatan) AS total_peringatan
+FROM 
+    pengguna p
+JOIN 
+    peringatan_fraud pf ON p.id_pengguna = pf.id_pengguna
+WHERE 
+    pf.status_peringatan = 'Baru'
+GROUP BY 
+    p.nama;
