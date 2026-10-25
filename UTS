@@ -1,0 +1,35 @@
+# Laporan Tugas Mandiri: Pemodelan Data Terstruktur
+**Studi Kasus: Pembaruan Proses Bisnis Sistem Deteksi Fraud**
+
+* **Nama:** Anatasya Silvia Monica
+* **NPM:** 264311037
+* **Kelas:** 1B / Teknologi Rekayasa Perangkat Lunak (TRPL)
+
+---
+
+## 1. Pemodelan Konseptual (*Conceptual Modeling*)
+Pada tahap ini, penambahan proses bisnis—seperti pencatatan kanal transaksi khusus (*subtype* pembayaran) dan penanganan investigasi oleh analis—dipetakan ke dalam rancangan entitas dan aturan bisnis (*Business Rules*).
+
+* **Penambahan Proses Bisnis:** Sistem kini mengakomodasi pencatatan detail jenis kanal pembayaran (Transfer Bank, E-Wallet, Kartu Kredit) serta pengelolaan status investigasi peringatan dini secara *real-time*.
+* **Entitas dan Atribut Utama:**
+  1. `analis_fraud`: Menyimpan data petugas pengawas yang meninjau anomali (`id_analis` sebagai *Primary Key*, `nama_analis`, `spesialisasi`, `status_aktif`).
+  2. `pengguna`: Menyimpan identitas nasabah (`id_pengguna` sebagai *Primary Key*, `nama`, `status_verifikasi`).
+  3. `model_deteksi`: Menyimpan parameter algoritma machine learning (`id_model` sebagai *Primary Key*, `nama_algoritma`, `pendekatan`, `mode_pemrosesan`).
+  4. `transaksi_fraud`: Mencatat log transaksi operasional (`id_transaksi` sebagai *Primary Key*, `id_pengguna` sebagai *Foreign Key*, `waktu_trx`, `nominal`, `kanal_trx`, `status_trx`).
+  5. `peringatan_fraud`: Menyimpan catatan skor risiko dan status peringatan (`id_peringatan` sebagai *Primary Key*, `id_model` dan `id_pengguna` sebagai *Foreign Key*, `waktu_deteksi`, `skor_fraud`, `status_peringatan`).
+  6. `log_investigasi`: Tabel relasi tambahan yang menghubungkan peringatan fraud dengan analis (`id_log` sebagai *Primary Key*, `id_peringatan` dan `id_analis` sebagai *Foreign Key*, `catatan_investigasi`, `waktu_tinjau`).
+
+---
+
+## 2. Pemodelan Logis (*Logical Modeling* & Normalisasi 1NF ke 3NF)
+Transformasi dari skema konseptual menuju skema relasional yang bersih dari redundansi data dilakukan melalui tahapan normalisasi berikut:
+
+* **Bentuk Tidak Normal (*Unnormalized Form* / UNF):** Seluruh data transaksi, pengguna, model deteksi, analis, dan hasil investigasi digabungkan ke dalam satu tabel besar yang memiliki kelompok atribut berulang (*repeating groups*).
+* **Bentuk Normal Pertama (1NF):** Memastikan seluruh atribut bernilai atomik (tunggal), tidak ada baris yang kembar, dan setiap sel tabel hanya menyimpan satu nilai data yang spesifik tanpa adanya kolom berulang.
+* **Bentuk Normal Kedua (2NF):** Menghilangkan ketergantungan parsial (*partial dependency*). Atribut non-kunci dipastikan bergantung sepenuhnya pada seluruh kunci utama (*Primary Key*), sehingga tabel dipecah menjadi entitas master (`pengguna`, `model_deteksi`, `analis_fraud`) dan entitas transaksional (`transaksi_fraud`, `peringatan_fraud`, `log_investigasi`).
+* **Bentuk Normal Ketiga (3NF):** Menghilangkan ketergantungan transitif (*transitive dependency*). Tidak ada atribut non-kunci yang bergantung pada atribut non-kunci lainnya, sehingga struktur tabel menjadi sangat modular, efisien, dan siap diimplementasikan secara fisik.
+
+---
+
+## 3. Pemodelan Fisik (*Physical Modeling* & SQL DDL)
+Skrip SQL DDL lengkap untuk membangun struktur tabel fisik dapat dilihat pada file `query_fraud_evaluasi.sql` di repository ini. Skrip tersebut telah dilengkapi dengan *Primary Key*, *Foreign Key*, serta *constraint* validasi (`ENUM`, `NOT NULL`, `DEFAULT`).
