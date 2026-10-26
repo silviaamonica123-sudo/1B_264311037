@@ -1,0 +1,85 @@
+CREATE DATABASE IF NOT EXISTS fraud_detection_db;
+USE fraud_detection_db;
+
+-- Hapus tabel lama (urutan: anak terlebih dahulu, baru induk)
+DROP TABLE IF EXISTS investigasi;
+DROP TABLE IF EXISTS peringatan_fraud;
+DROP TABLE IF EXISTS transaksi;
+DROP TABLE IF EXISTS analis;
+DROP TABLE IF EXISTS model_deteksi;
+DROP TABLE IF EXISTS pengguna;
+
+-- 1. Tabel Induk 1: pengguna
+CREATE TABLE pengguna (
+    id_pengguna INT AUTO_INCREMENT PRIMARY KEY,
+    nama VARCHAR(100) NOT NULL,
+    status_verifikasi ENUM('Terverifikasi', 'Belum Terverifikasi', 'Dibekukan')
+        NOT NULL DEFAULT 'Belum Terverifikasi'
+);
+
+-- 2. Tabel Induk 2: model_deteksi
+CREATE TABLE model_deteksi (
+    id_model INT AUTO_INCREMENT PRIMARY KEY,
+    nama_algoritma VARCHAR(100) NOT NULL,
+    pendekatan ENUM('Supervised', 'Unsupervised', 'Rule-based', 'Hybrid') NOT NULL,
+    mode_pemrosesan ENUM('Real-time', 'Batch', 'Hybrid') NOT NULL
+);
+
+-- 3. Tabel Induk 3 (baru): analis
+CREATE TABLE analis (
+    id_analis INT AUTO_INCREMENT PRIMARY KEY,
+    nama_analis VARCHAR(100) NOT NULL,
+    jabatan VARCHAR(50) NOT NULL
+);
+
+-- 4. Tabel Anak 1 (baru): transaksi (anak dari pengguna)
+CREATE TABLE transaksi (
+    id_transaksi INT AUTO_INCREMENT PRIMARY KEY,
+    id_pengguna INT NOT NULL,
+    waktu_transaksi DATETIME NOT NULL,
+    nominal DECIMAL(15,2) NOT NULL,
+    jenis_transaksi ENUM('Transfer', 'Pembayaran', 'Tarik Tunai', 'Top Up') NOT NULL,
+    CONSTRAINT chk_transaksi_nominal CHECK (nominal > 0),
+    -- RESTRICT: data transaksi keuangan tidak ikut terhapus saat pengguna dihapus
+    CONSTRAINT fk_transaksi_pengguna FOREIGN KEY (id_pengguna)
+        REFERENCES pengguna(id_pengguna)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- 5. Tabel Transaksi/Anak: peringatan_fraud (anak dari model_deteksi dan transaksi)
+--    Pengguna ditelusuri melalui transaksi, sehingga id_pengguna tidak disimpan lagi (3NF)
+CREATE TABLE peringatan_fraud (
+    id_peringatan INT AUTO_INCREMENT PRIMARY KEY,
+    id_model INT NOT NULL,
+    id_transaksi INT NOT NULL,
+    waktu_deteksi DATETIME NOT NULL,
+    skor_fraud DECIMAL(5,2) NOT NULL,
+    status_peringatan ENUM('Baru', 'Sedang Ditinjau', 'Selesai') NOT NULL DEFAULT 'Baru',
+    CONSTRAINT chk_peringatan_skor CHECK (skor_fraud BETWEEN 0 AND 100),
+    CONSTRAINT fk_peringatan_model FOREIGN KEY (id_model)
+        REFERENCES model_deteksi(id_model)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_peringatan_transaksi FOREIGN KEY (id_transaksi)
+        REFERENCES transaksi(id_transaksi)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- 6. Tabel Anak 2 (baru): investigasi (anak dari peringatan_fraud dan analis)
+CREATE TABLE investigasi (
+    id_investigasi INT AUTO_INCREMENT PRIMARY KEY,
+    id_peringatan INT NOT NULL,
+    id_analis INT NOT NULL,
+    tanggal_mulai DATETIME NOT NULL,
+    tanggal_selesai DATETIME NULL,
+    hasil_keputusan ENUM('Fraud Terkonfirmasi', 'Bukan Fraud', 'Perlu Tindak Lanjut') NULL,
+    catatan VARCHAR(255) NULL,
+    CONSTRAINT chk_investigasi_tanggal
+        CHECK (tanggal_selesai IS NULL OR tanggal_selesai >= tanggal_mulai),
+    CONSTRAINT fk_investigasi_peringatan FOREIGN KEY (id_peringatan)
+        REFERENCES peringatan_fraud(id_peringatan)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    -- RESTRICT: riwayat investigasi tetap terjaga saat data analis dihapus
+    CONSTRAINT fk_investigasi_analis FOREIGN KEY (id_analis)
+        REFERENCES analis(id_analis)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
